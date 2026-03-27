@@ -32,6 +32,32 @@ phenotype_columns <- function(data) {
   cols[!vapply(data[cols], is.list, logical(1))]
 }
 
+default_export_pheno_col <- function(choices, interpret_eucast = FALSE, interpret_clsi = FALSE) {
+  if (!length(choices)) {
+    return(character())
+  }
+
+  if (isTRUE(interpret_eucast)) {
+    eucast_choice <- choices[grepl("eucast", choices, ignore.case = TRUE)][1]
+    if (!is.na(eucast_choice)) {
+      return(eucast_choice)
+    }
+  }
+
+  if (isTRUE(interpret_clsi)) {
+    clsi_choice <- choices[grepl("clsi", choices, ignore.case = TRUE)][1]
+    if (!is.na(clsi_choice)) {
+      return(clsi_choice)
+    }
+  }
+
+  if ("pheno_provided" %in% choices) {
+    return("pheno_provided")
+  }
+
+  choices[[1]]
+}
+
 format_choice_label <- function(x) {
   switch(
     x,
@@ -46,6 +72,30 @@ format_choice_label <- function(x) {
     whonet = "WHONET",
     x
   )
+}
+
+guess_format_from_filename <- function(filename) {
+  filename <- tolower(filename %||% "")
+
+  format_patterns <- c(
+    ebi_ftp = "(^|[^a-z])ebi[_. -]?ftp([^a-z]|$)",
+    ebi_web = "(^|[^a-z])ebi[_. -]?web([^a-z]|$)",
+    ebi = "(^|[^a-z])ebi([^a-z]|$)",
+    ncbi = "(^|[^a-z])ncbi([^a-z]|$)",
+    whonet = "(^|[^a-z])whonet([^a-z]|$)",
+    sensititre = "(^|[^a-z])sensititre([^a-z]|$)",
+    microscan = "(^|[^a-z])microscan([^a-z]|$)",
+    phoenix = "(^|[^a-z])phoenix([^a-z]|$)",
+    vitek = "(^|[^a-z])vitek([^a-z]|$)"
+  )
+
+  for (format_name in names(format_patterns)) {
+    if (grepl(format_patterns[[format_name]], filename, perl = TRUE)) {
+      return(format_name)
+    }
+  }
+
+  NULL
 }
 
 prepare_import_input <- function(file_info) {
@@ -67,6 +117,69 @@ prepare_import_input <- function(file_info) {
   )
 }
 
+export_standard_for_pheno <- function(pheno_col) {
+  pheno_col <- tolower(pheno_col %||% "")
+
+  if (grepl("eucast", pheno_col, fixed = TRUE)) {
+    return("EUCAST 2025")
+  }
+
+  if (grepl("clsi", pheno_col, fixed = TRUE)) {
+    return("CLSI 2025")
+  }
+
+  NULL
+}
+
+breakpoint_version_for_pheno <- function(pheno_col, current_value = NULL) {
+  standard <- export_standard_for_pheno(pheno_col)
+
+  if (!is.null(standard)) {
+    return(standard)
+  }
+
+  if (!is.null(current_value) && nzchar(current_value)) {
+    return(current_value)
+  }
+
+  "EUCAST 2024"
+}
+
+prepare_export_data <- function(data, pheno_col) {
+  standard <- export_standard_for_pheno(pheno_col)
+
+  if (is.null(standard)) {
+    return(data)
+  }
+
+  data$guideline <- standard
+  data
+}
+
+apply_ncbi_testing_standard <- function(data, pheno_col) {
+  standard <- export_standard_for_pheno(pheno_col)
+
+  if (!is.null(standard) && "testing_standard" %in% names(data)) {
+    data$testing_standard <- standard
+  }
+
+  data
+}
+
+apply_ebi_testing_standard <- function(data, pheno_col, breakpoint_version = NULL) {
+  standard <- breakpoint_version
+
+  if (is.null(standard) || !nzchar(standard)) {
+    standard <- export_standard_for_pheno(pheno_col)
+  }
+
+  if (!is.null(standard) && "ast_standard" %in% names(data)) {
+    data$ast_standard <- standard
+  }
+
+  data
+}
+
 app_theme <- bs_theme(
   version = 5,
   bootswatch = "minty",
@@ -78,7 +191,7 @@ app_theme <- bs_theme(
 )
 
 ui <- page_sidebar(
-  title = "shinyAMR",
+  title = NULL,
   theme = app_theme,
   tags$head(
     tags$style(HTML("
@@ -111,10 +224,24 @@ ui <- page_sidebar(
         color: #FFFFFF;
         filter: brightness(0.95);
       }
+      .nav-pills .nav-link,
+      .nav-tabs .nav-link {
+        color: #68349A;
+      }
+      .nav-pills .nav-link.active,
+      .nav-tabs .nav-link.active {
+        background-color: #68349A;
+        border-color: #68349A;
+        color: #FFFFFF;
+      }
     "))
   ),
   sidebar = sidebar(
     width = 360,
+    div(
+      style = "background-color: #68349A; color: #FFFFFF; padding: 14px 16px; margin: -1rem -1rem 1rem -1rem; font-weight: 700; font-size: 1.1rem;",
+      "AMRgen converter"
+    ),
     fileInput(
       "input_file",
       "Upload antibiogram file",
@@ -142,42 +269,10 @@ ui <- page_sidebar(
     textInput("species_override", "Species override (optional)"),
     textInput("antibiotic_override", "Antibiotic override (optional)"),
     textInput("source_override", "Source override (optional)"),
-    actionButton("run_import", "Import and Summarise", class = "btn-primary"),
-    hr(),
-    uiOutput("pheno_col_ui"),
-    textInput("ebi_breakpoint_version", "EBI breakpoint version", value = "EUCAST 2024"),
-    textInput("ebi_submission_account", "EBI submission account (optional)"),
-    textInput("ebi_domain", "EBI domain", value = "self.ExampleDomain"),
-    helpText(
-      "EBI JSON download is enabled when breakpoint version, submission account, and domain are provided."
-    )
-  ),
-  layout_column_wrap(
-    width = 1 / 3,
-    value_box(
-      title = "Rows imported",
-      value = textOutput("rows_imported"),
-      theme = "primary"
-    ),
-    value_box(
-      title = "Phenotype columns",
-      value = textOutput("pheno_col_count"),
-      theme = "secondary"
-    ),
-    value_box(
-      title = "Selected format",
-      value = textOutput("selected_format"),
-      theme = "success"
-    )
-  ),
-  card(
-    full_screen = TRUE,
-    card_header("Workflow status"),
-    verbatimTextOutput("status_log")
+    actionButton("run_import", "Import and Summarise", class = "btn-primary")
   ),
   navset_card_tab(
     id = "main_tabs",
-    title = "Results",
     nav_panel(
       "Imported data",
       DTOutput("imported_table")
@@ -194,20 +289,61 @@ ui <- page_sidebar(
     ),
     nav_panel(
       "Exports",
-      p("Preview the converted outputs and download them below."),
-      h5("NCBI preview"),
-      DTOutput("ncbi_preview"),
-      br(),
-      downloadButton("download_ncbi", "Download NCBI TSV"),
-      hr(),
-      h5("EBI preview"),
-      DTOutput("ebi_preview"),
-      br(),
-      downloadButton("download_ebi_tsv", "Download EBI TSV"),
-      br(),
-      br(),
-      downloadButton("download_ebi_json", "Download EBI JSON zip")
+      navset_card_tab(
+        id = "export_tabs",
+        nav_panel(
+          "NCBI",
+          div(
+            style = "margin-bottom: 20px;",
+            layout_columns(
+              col_widths = c(4, 8),
+              div(style = "padding-top: 31px;", downloadButton("download_ncbi", "Download NCBI TSV")),
+              uiOutput("export_pheno_col_ncbi_ui")
+            )
+          ),
+          hr(style = "margin-top: 0; margin-bottom: 24px;"),
+          uiOutput("ncbi_preview_ui")
+        ),
+        nav_panel(
+          "EBI table",
+          value = "ebi_table",
+          div(
+            style = "margin-bottom: 20px;",
+            layout_columns(
+              col_widths = c(3, 4, 5),
+              div(style = "padding-top: 31px;", downloadButton("download_ebi_tsv", "Download EBI TSV")),
+              uiOutput("export_pheno_col_ebi_table_ui"),
+              textInput("ebi_breakpoint_version", "EBI breakpoint version", value = "EUCAST 2024")
+            )
+          ),
+          hr(style = "margin-top: 0; margin-bottom: 24px;"),
+          uiOutput("ebi_preview_ui")
+        ),
+        nav_panel(
+          "EBI JSON",
+          value = "ebi_json",
+          div(
+            style = "margin-bottom: 20px;",
+            layout_columns(
+              col_widths = c(3, 4, 5),
+              div(style = "padding-top: 31px;", downloadButton("download_ebi_json", "Download EBI JSON zip")),
+              uiOutput("export_pheno_col_ebi_json_ui"),
+              textInput("ebi_breakpoint_version_json", "EBI breakpoint version", value = "EUCAST 2024")
+            )
+          ),
+          hr(style = "margin-top: 0; margin-bottom: 24px;"),
+          textInput("ebi_submission_account", "EBI submission account (optional)"),
+          textInput("ebi_domain", "EBI domain", value = "self.ExampleDomain"),
+          helpText("EBI JSON export needs the submission account and domain."),
+          uiOutput("ebi_json_info_ui")
+        )
+      )
     )
+  ),
+  card(
+    full_screen = TRUE,
+    card_header("Workflow status"),
+    verbatimTextOutput("status_log")
   )
 )
 
@@ -217,20 +353,122 @@ server <- function(input, output, session) {
     summary = NULL,
     ncbi = NULL,
     ebi = NULL,
-    status = "Upload a supported AST file, choose the source format, and run the import."
+    status = "Upload a supported AST file, choose the source format, and run the import.",
+    export_pheno_col = NULL
   )
 
-  output$pheno_col_ui <- renderUI({
+  observeEvent(input$input_file, {
+    req(input$input_file$name)
+
+    guessed_format <- guess_format_from_filename(input$input_file$name)
+
+    if (!is.null(guessed_format)) {
+      updateSelectInput(
+        session,
+        "input_format",
+        selected = guessed_format
+      )
+    }
+  })
+
+  output$export_pheno_col_ncbi_ui <- renderUI({
     choices <- phenotype_columns(rv$imported %||% data.frame())
     if (!length(choices)) {
       return(helpText("Import data to choose a phenotype column for export."))
     }
 
-    selectInput(
-      "export_pheno_col",
-      "Phenotype column for exports",
-      choices = choices,
-      selected = if ("pheno_provided" %in% choices) "pheno_provided" else choices[[1]]
+    selectInput("export_pheno_col_ncbi", "Phenotype column for exports", choices = choices, selected = rv$export_pheno_col %||% choices[[1]])
+  })
+
+  output$export_pheno_col_ebi_table_ui <- renderUI({
+    choices <- phenotype_columns(rv$imported %||% data.frame())
+    if (!length(choices)) {
+      return(helpText("Import data to choose a phenotype column for export."))
+    }
+
+    selectInput("export_pheno_col_ebi_table", "Phenotype column for exports", choices = choices, selected = rv$export_pheno_col %||% choices[[1]])
+  })
+
+  output$export_pheno_col_ebi_json_ui <- renderUI({
+    choices <- phenotype_columns(rv$imported %||% data.frame())
+    if (!length(choices)) {
+      return(helpText("Import data to choose a phenotype column for export."))
+    }
+
+    selectInput("export_pheno_col_ebi_json", "Phenotype column for exports", choices = choices, selected = rv$export_pheno_col %||% choices[[1]])
+  })
+
+  observeEvent(input$export_pheno_col_ncbi, {
+    req(input$export_pheno_col_ncbi)
+    rv$export_pheno_col <- input$export_pheno_col_ncbi
+  }, ignoreInit = TRUE)
+
+  observeEvent(input$export_pheno_col_ebi_table, {
+    req(input$export_pheno_col_ebi_table)
+    rv$export_pheno_col <- input$export_pheno_col_ebi_table
+  }, ignoreInit = TRUE)
+
+  observeEvent(input$export_pheno_col_ebi_json, {
+    req(input$export_pheno_col_ebi_json)
+    rv$export_pheno_col <- input$export_pheno_col_ebi_json
+  }, ignoreInit = TRUE)
+
+  observe({
+    req(rv$export_pheno_col)
+    choices <- phenotype_columns(rv$imported %||% data.frame())
+    req(length(choices))
+
+    updateSelectInput(session, "export_pheno_col_ncbi", choices = choices, selected = rv$export_pheno_col)
+    updateSelectInput(session, "export_pheno_col_ebi_table", choices = choices, selected = rv$export_pheno_col)
+    updateSelectInput(session, "export_pheno_col_ebi_json", choices = choices, selected = rv$export_pheno_col)
+  })
+
+  observeEvent(rv$export_pheno_col, {
+    req(rv$export_pheno_col)
+
+    updateTextInput(
+      session,
+      "ebi_breakpoint_version",
+      value = breakpoint_version_for_pheno(
+        rv$export_pheno_col,
+        current_value = input$ebi_breakpoint_version
+      )
+    )
+
+    updateTextInput(
+      session,
+      "ebi_breakpoint_version_json",
+      value = breakpoint_version_for_pheno(
+        rv$export_pheno_col,
+        current_value = input$ebi_breakpoint_version_json
+      )
+    )
+  }, ignoreInit = TRUE)
+
+  output$ncbi_preview_ui <- renderUI({
+    if (is.null(rv$imported)) {
+      return(p("Import data to preview and download NCBI exports."))
+    }
+
+    DTOutput("ncbi_preview")
+  })
+
+  output$ebi_preview_ui <- renderUI({
+    if (is.null(rv$imported)) {
+      return(p("Import data to preview and download EBI exports."))
+    }
+
+    DTOutput("ebi_preview")
+  })
+
+  output$ebi_json_info_ui <- renderUI({
+    if (is.null(rv$imported)) {
+      return(p("Import data to prepare EBI JSON exports."))
+    }
+
+    tagList(
+      p("Use the button above to download a zip archive of the generated EBI JSON files."),
+      p("The files are generated from the selected phenotype export column and the EBI metadata shown in this tab.")
     )
   })
 
@@ -264,6 +502,11 @@ server <- function(input, output, session) {
     }
 
     rv$imported <- result$value
+    rv$export_pheno_col <- default_export_pheno_col(
+      phenotype_columns(rv$imported),
+      interpret_eucast = isTRUE(input$interpret_eucast),
+      interpret_clsi = isTRUE(input$interpret_clsi)
+    )
 
     summary_result <- tryCatch(
       capture_conditions(AMRgen::summarise_pheno(rv$imported)),
@@ -301,22 +544,32 @@ server <- function(input, output, session) {
   })
 
   export_tables <- reactive({
-    req(rv$imported, input$export_pheno_col)
+    req(rv$imported, rv$export_pheno_col)
+    export_data <- prepare_export_data(rv$imported, rv$export_pheno_col)
 
     ncbi_result <- capture_conditions(
       AMRgen::export_ncbi_ast(
-        rv$imported,
-        pheno_col = input$export_pheno_col
+        export_data,
+        pheno_col = rv$export_pheno_col
       )
+    )
+    ncbi_result$value <- apply_ncbi_testing_standard(
+      ncbi_result$value,
+      rv$export_pheno_col
     )
 
     ebi_args <- list(
-      data = rv$imported,
-      pheno_col = input$export_pheno_col,
+      data = export_data,
+      pheno_col = rv$export_pheno_col,
       breakpoint_version = input$ebi_breakpoint_version
     )
 
     ebi_result <- capture_conditions(do.call(AMRgen::export_ebi_ast, ebi_args))
+    ebi_result$value <- apply_ebi_testing_standard(
+      ebi_result$value,
+      rv$export_pheno_col,
+      breakpoint_version = input$ebi_breakpoint_version
+    )
 
     rv$ncbi <- ncbi_result$value
     rv$ebi <- ebi_result$value
@@ -397,12 +650,18 @@ server <- function(input, output, session) {
 
   output$ncbi_preview <- renderDT({
     tables <- export_tables()
-    datatable(tables$ncbi$value, options = list(scrollX = TRUE, pageLength = 10))
+    datatable(
+      tables$ncbi$value,
+      options = list(scrollX = TRUE, pageLength = 10, dom = "tip")
+    )
   })
 
   output$ebi_preview <- renderDT({
     tables <- export_tables()
-    datatable(tables$ebi$value, options = list(scrollX = TRUE, pageLength = 10))
+    datatable(
+      tables$ebi$value,
+      options = list(scrollX = TRUE, pageLength = 10, dom = "tip")
+    )
   })
 
   output$download_ncbi <- downloadHandler(
@@ -410,11 +669,24 @@ server <- function(input, output, session) {
       paste0(tools::file_path_sans_ext(input$input_file$name), "_ncbi.tsv")
     },
     content = function(file) {
-      AMRgen::export_ncbi_ast(
-        rv$imported,
+      export_data <- prepare_export_data(rv$imported, rv$export_pheno_col)
+      ncbi_table <- AMRgen::export_ncbi_ast(
+        export_data,
+        pheno_col = rv$export_pheno_col
+      )
+
+      ncbi_table <- apply_ncbi_testing_standard(
+        ncbi_table,
+        rv$export_pheno_col
+      )
+
+      utils::write.table(
+        ncbi_table,
         file = file,
-        overwrite = TRUE,
-        pheno_col = input$export_pheno_col
+        sep = "\t",
+        row.names = FALSE,
+        quote = TRUE,
+        na = ""
       )
     }
   )
@@ -424,13 +696,19 @@ server <- function(input, output, session) {
       paste0(tools::file_path_sans_ext(input$input_file$name), "_ebi.tsv")
     },
     content = function(file) {
+      export_data <- prepare_export_data(rv$imported, rv$export_pheno_col)
       ebi_table <- do.call(
         AMRgen::export_ebi_ast,
         list(
-          data = rv$imported,
-          pheno_col = input$export_pheno_col,
+          data = export_data,
+          pheno_col = rv$export_pheno_col,
           breakpoint_version = input$ebi_breakpoint_version
         )
+      )
+      ebi_table <- apply_ebi_testing_standard(
+        ebi_table,
+        rv$export_pheno_col,
+        breakpoint_version = input$ebi_breakpoint_version
       )
 
       utils::write.table(
@@ -448,12 +726,20 @@ server <- function(input, output, session) {
     filename = function() {
       paste0(tools::file_path_sans_ext(input$input_file$name), "_ebi_json.zip")
     },
+    contentType = "application/zip",
     content = function(file) {
-      req(
-        nzchar(input$ebi_breakpoint_version),
-        nzchar(input$ebi_submission_account),
-        nzchar(input$ebi_domain)
-      )
+      req(rv$imported, rv$export_pheno_col)
+      if (!nzchar(input$ebi_breakpoint_version_json)) {
+        stop("Please provide an EBI breakpoint version before downloading JSON.")
+      }
+      if (!nzchar(input$ebi_submission_account)) {
+        stop("Please provide an EBI submission account before downloading JSON.")
+      }
+      if (!nzchar(input$ebi_domain)) {
+        stop("Please provide an EBI domain before downloading JSON.")
+      }
+
+      export_data <- prepare_export_data(rv$imported, rv$export_pheno_col)
 
       tmp_dir <- tempfile("ebi_json_")
       dir.create(tmp_dir, recursive = TRUE, showWarnings = FALSE)
@@ -461,9 +747,9 @@ server <- function(input, output, session) {
       do.call(
         AMRgen::export_ebi_ast,
         list(
-          data = rv$imported,
-          pheno_col = input$export_pheno_col,
-          breakpoint_version = input$ebi_breakpoint_version,
+          data = export_data,
+          pheno_col = rv$export_pheno_col,
+          breakpoint_version = input$ebi_breakpoint_version_json,
           submission_account = input$ebi_submission_account,
           domain = input$ebi_domain,
           output_dir = tmp_dir
@@ -475,12 +761,10 @@ server <- function(input, output, session) {
         stop("No EBI JSON files were created.")
       }
 
-      old_wd <- getwd()
-      on.exit(setwd(old_wd), add = TRUE)
-      setwd(tmp_dir)
-      utils::zip(
+      zip::zipr(
         zipfile = file,
-        files = basename(json_files)
+        files = json_files,
+        root = tmp_dir
       )
     }
   )
