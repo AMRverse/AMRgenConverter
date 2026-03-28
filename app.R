@@ -4,6 +4,8 @@ library(DT)
 library(AMRgen)
 library(readxl)
 
+addResourcePath("assets", normalizePath("."))
+
 capture_conditions <- function(expr) {
   warnings <- character()
   messages <- character()
@@ -61,15 +63,15 @@ default_export_pheno_col <- function(choices, interpret_eucast = FALSE, interpre
 format_choice_label <- function(x) {
   switch(
     x,
-    ebi = "EBI antibiogram",
-    ebi_web = "EBI web export",
-    ebi_ftp = "EBI FTP export",
-    ncbi = "NCBI antibiogram",
+    sensititre = "Sensititre",
     vitek = "Vitek",
     phoenix = "Phoenix",
     microscan = "MicroScan",
-    sensititre = "Sensititre",
     whonet = "WHONET",
+    ncbi = "NCBI browser download",
+    ncbi_biosample = "NCBI cloud download",
+    ebi_web = "EBI browser download",
+    ebi_ftp = "EBI ftp download",
     x
   )
 }
@@ -234,42 +236,73 @@ ui <- page_sidebar(
         border-color: #68349A;
         color: #FFFFFF;
       }
+      .progress-bar,
+      .shiny-file-input-progress .progress-bar {
+        background-color: #A485C4 !important;
+      }
     "))
   ),
   sidebar = sidebar(
     width = 360,
+    style = "background-color: #FFFFFF; display: flex; flex-direction: column; height: 100%;",
     div(
-      style = "background-color: #68349A; color: #FFFFFF; padding: 14px 16px; margin: -1rem -1rem 1rem -1rem; font-weight: 700; font-size: 1.1rem;",
-      "AMRgen converter"
+      style = "background-color: #FFFFFF; padding: 10px 16px 16px 16px; margin: -1rem -1rem 1rem -1rem;",
+      div(
+        style = "display: flex; align-items: center; justify-content: center;",
+        tags$a(
+          href = "https://amrgen.org",
+          target = "_blank",
+          rel = "noopener noreferrer",
+          tags$img(
+            src = "assets/logo.png",
+            alt = "AMRgen logo",
+            style = "max-width: 100%; max-height: 72px; height: auto;"
+          )
+        )
+      )
     ),
-    fileInput(
-      "input_file",
-      "Upload antibiogram file",
-      accept = c(".csv", ".tsv", ".txt", ".gz", ".xls", ".xlsx")
-    ),
-    selectInput(
-      "input_format",
-      "Input format",
-      choices = c(
-        "EBI antibiogram" = "ebi",
-        "EBI web export" = "ebi_web",
-        "EBI FTP export" = "ebi_ftp",
-        "NCBI antibiogram" = "ncbi",
-        "Vitek" = "vitek",
-        "Phoenix" = "phoenix",
-        "MicroScan" = "microscan",
-        "Sensititre" = "sensititre",
-        "WHONET" = "whonet"
+    div(
+      style = "display: flex; flex-direction: column; gap: 0.5rem; flex: 1 1 auto; background-color: #FFFFFF;",
+      fileInput(
+        "input_file",
+        "Upload antibiogram file",
+        accept = c(".csv", ".tsv", ".txt", ".gz", ".xls", ".xlsx")
       ),
-      selected = "ncbi"
+      selectInput(
+        "input_format",
+        "Input format",
+        choices = c(
+          "Sensititre" = "sensititre",
+          "Vitek" = "vitek",
+          "Phoenix" = "phoenix",
+          "MicroScan" = "microscan",
+          "WHONET" = "whonet",
+          "NCBI browser download" = "ncbi",
+          "NCBI cloud download" = "ncbi_biosample",
+          "EBI browser download" = "ebi_web",
+          "EBI ftp download" = "ebi_ftp"
+        ),
+        selected = "sensititre"
+      ),
+      checkboxInput("interpret_eucast", "Interpret using EUCAST breakpoints", FALSE),
+      checkboxInput("interpret_clsi", "Interpret using CLSI breakpoints", FALSE),
+      checkboxInput("interpret_ecoff", "Interpret WT/NWT using ECOFF", FALSE),
+      actionButton("run_import", "Import and Summarise", class = "btn-primary"),
+      tags$h5("Other options", style = "margin-top: 1rem; color: #3E0B5C;"),
+      textInput("species_override", "Species override"),
+      textInput("antibiotic_override", "Antibiotic override"),
+      textInput("source_override", "Source override")
     ),
-    checkboxInput("interpret_eucast", "Interpret using EUCAST breakpoints", FALSE),
-    checkboxInput("interpret_clsi", "Interpret using CLSI breakpoints", FALSE),
-    checkboxInput("interpret_ecoff", "Interpret WT/NWT using ECOFF", FALSE),
-    textInput("species_override", "Species override (optional)"),
-    textInput("antibiotic_override", "Antibiotic override (optional)"),
-    textInput("source_override", "Source override (optional)"),
-    actionButton("run_import", "Import and Summarise", class = "btn-primary")
+    div(
+      style = "margin-top: auto; padding-top: 1rem; background-color: #FFFFFF;",
+      tags$a(
+        href = "https://github.com/AMRverse/AMRgen/blob/main/README.md",
+        target = "_blank",
+        rel = "noopener noreferrer",
+        style = "color: #3E0B5C; font-weight: 600; text-decoration: none;",
+        "Source code"
+      )
+    )
   ),
   navset_card_tab(
     id = "main_tabs",
@@ -326,7 +359,7 @@ ui <- page_sidebar(
             style = "margin-bottom: 20px;",
             layout_columns(
               col_widths = c(3, 4, 5),
-              div(style = "padding-top: 31px;", downloadButton("download_ebi_json", "Download EBI JSON zip")),
+              div(style = "padding-top: 31px;", uiOutput("download_ebi_json_top_ui")),
               uiOutput("export_pheno_col_ebi_json_ui"),
               textInput("ebi_breakpoint_version_json", "EBI breakpoint version", value = "EUCAST 2024")
             )
@@ -334,7 +367,7 @@ ui <- page_sidebar(
           hr(style = "margin-top: 0; margin-bottom: 24px;"),
           textInput("ebi_submission_account", "EBI submission account (optional)"),
           textInput("ebi_domain", "EBI domain", value = "self.ExampleDomain"),
-          helpText("EBI JSON export needs the submission account and domain."),
+          helpText("EBI JSON export requires the breakpoint version and domain. Submission account is optional."),
           uiOutput("ebi_json_info_ui")
         )
       )
@@ -467,9 +500,25 @@ server <- function(input, output, session) {
     }
 
     tagList(
-      p("Use the button above to download a zip archive of the generated EBI JSON files."),
+      if (!nzchar(input$ebi_breakpoint_version_json) ||
+          !nzchar(input$ebi_domain)) {
+        p("Enter the breakpoint version and domain to enable the JSON download.")
+      },
       p("The files are generated from the selected phenotype export column and the EBI metadata shown in this tab.")
     )
+  })
+
+  output$download_ebi_json_top_ui <- renderUI({
+    if (is.null(rv$imported)) {
+      return(NULL)
+    }
+
+    if (nzchar(input$ebi_breakpoint_version_json) &&
+        nzchar(input$ebi_domain)) {
+      return(downloadButton("download_ebi_json", "Download EBI JSON zip"))
+    }
+
+    tags$span("Complete fields below", style = "color: #6c757d;")
   })
 
   observeEvent(input$run_import, {
@@ -731,9 +780,6 @@ server <- function(input, output, session) {
       req(rv$imported, rv$export_pheno_col)
       if (!nzchar(input$ebi_breakpoint_version_json)) {
         stop("Please provide an EBI breakpoint version before downloading JSON.")
-      }
-      if (!nzchar(input$ebi_submission_account)) {
-        stop("Please provide an EBI submission account before downloading JSON.")
       }
       if (!nzchar(input$ebi_domain)) {
         stop("Please provide an EBI domain before downloading JSON.")
