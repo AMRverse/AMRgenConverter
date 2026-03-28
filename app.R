@@ -240,6 +240,19 @@ ui <- page_sidebar(
       .shiny-file-input-progress .progress-bar {
         background-color: #A485C4 !important;
       }
+      .sidebar,
+      .bslib-sidebar-layout .sidebar,
+      .bslib-sidebar-layout .sidebar-content,
+      .bslib-sidebar-layout .sidebar > .sidebar-content,
+      .bslib-sidebar-layout .sidebar .shiny-input-container,
+      .bslib-sidebar-layout .sidebar .form-group,
+      .bslib-sidebar-layout .sidebar .selectize-control,
+      .bslib-sidebar-layout .sidebar .selectize-input,
+      .bslib-sidebar-layout .sidebar .selectize-dropdown,
+      .bslib-sidebar-layout .sidebar .form-control,
+      .bslib-sidebar-layout .sidebar .well {
+        background-color: #FFFFFF !important;
+      }
     "))
   ),
   sidebar = sidebar(
@@ -294,9 +307,9 @@ ui <- page_sidebar(
       textInput("source_override", "Source override")
     ),
     div(
-      style = "margin-top: auto; padding-top: 1rem; background-color: #FFFFFF;",
+      style = "margin-top: auto; padding-top: 1rem; background-color: #FFFFFF; text-align: center;",
       tags$a(
-        href = "https://github.com/AMRverse/AMRgen/blob/main/README.md",
+        href = "https://github.com/AMRverse/AMRgenconverter",
         target = "_blank",
         rel = "noopener noreferrer",
         style = "color: #3E0B5C; font-weight: 600; text-decoration: none;",
