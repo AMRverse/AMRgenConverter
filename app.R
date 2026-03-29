@@ -668,9 +668,12 @@ ui <- page_sidebar(
       actionButton("run_import", "Import and Summarise", class = "btn-primary"),
       uiOutput("extra_import_args_ui"),
       tags$h5("Other options", style = "margin-top: 1rem; color: #3E0B5C;"),
+      tags$p(
+        "Input files will normally specify species and antibiotic for each data point. If not, and your file includes data for a single species or antibiotic, you can provide the value here instead.",
+        style = "font-size: 0.9rem; color: #4a4a4a; margin-bottom: 0.75rem;"
+      ),
       textInput("species_override", "Species override"),
-      textInput("antibiotic_override", "Antibiotic override"),
-      textInput("source_override", "Source override")
+      textInput("antibiotic_override", "Antibiotic override")
     ),
     div(
       style = "margin-top: auto; padding-top: 1rem; background-color: #FFFFFF; text-align: center;",
@@ -685,12 +688,40 @@ ui <- page_sidebar(
   ),
   navset_card_tab(
     id = "main_tabs",
+    selected = "instructions",
+    nav_panel(
+      "Instructions",
+      value = "instructions",
+      div(
+        style = "padding: 0.5rem 0.25rem 0.25rem 0.25rem;",
+        tags$h4("How to use this app", style = "color: #3E0B5C; margin-bottom: 1rem;"),
+        tags$p(HTML("This app imports antibiogram data from a variety of input formats, and exports submission-ready files suitable for submission to <a href=\"https://www.ncbi.nlm.nih.gov/biosample/docs/antibiogram/\" target=\"_blank\" rel=\"noopener noreferrer\">NCBI</a> or <a href=\"https://www.ebi.ac.uk/amr/amr_submission_guide/\" target=\"_blank\" rel=\"noopener noreferrer\">ENA (via EBI AMR portal)</a> as BioSample data. It is powered by the <a href=\"https://amrgen.org/\" target=\"_blank\" rel=\"noopener noreferrer\">AMRgen</a> and <a href=\"https://amr-for-r.org/\" target=\"_blank\" rel=\"noopener noreferrer\">AMR for R</a> packages.")),
+        tags$ol(
+          tags$li("Upload your antibiogram file in a supported format. Click the 'Input format' selector to see the list of supported input formats."),
+          tags$li('If you would like to re-interpret the MIC or disk measurements in the input file using latest breakpoints, check the relevant boxes under "Interpret resistance categories?"'),
+          tags$li(HTML("Optionally, you can specify any additional import arguments using the fields below the Import button. See the AMRgen <a href=\"https://amrgen.org/reference/import_pheno.html\" target=\"_blank\" rel=\"noopener noreferrer\">import_pheno()</a> documentation for further guidance.")),
+          tags$li("Click 'Import and Summarise' to load the data."),
+          tags$li(HTML("Review the imported data and summary tables, using the tabs above to navigate. See the AMRgen <a href=\"https://amrgen.org/reference/summarise_pheno.html\" target=\"_blank\" rel=\"noopener noreferrer\">summarise_pheno()</a> documentation for help with interpreting the summary tables.")),
+          tags$li(
+            HTML("Open the Exports tab to convert the imported data to submission-ready formats. For further details of the exported file formats and options, see the AMRgen functions:"),
+            tags$ul(
+              style = "margin-top: 0.5rem;",
+              tags$li(HTML("<a href=\"https://amrgen.org/reference/export_ncbi_ast.html\" target=\"_blank\" rel=\"noopener noreferrer\">export_ncbi_ast()</a>")),
+              tags$li(HTML("<a href=\"https://amrgen.org/reference/export_ebi_ast.html\" target=\"_blank\" rel=\"noopener noreferrer\">export_ebi_ast()</a>"))
+            )
+          ),
+          tags$li("Note that NCBI and ENA require valid BioSamples be included in the submission files. If needed you can upload a second file mapping sample identifiers from your input antibiogram file, to BioSample accessions, under the Exports tab before downloading. This file can be in any tabular format, you just need to indicate which column contains sample identifiers that match your input file, and which column contains the BioSample accessions to replace these with in the exported files.")
+        )
+      )
+    ),
     nav_panel(
       "Imported data",
+      value = "imported_data",
       DTOutput("imported_table")
     ),
     nav_panel(
       "Summary",
+      value = "summary",
       navset_card_tab(
         id = "summary_tabs",
         nav_panel("Overview", DTOutput("summary_uniques")),
@@ -701,6 +732,7 @@ ui <- page_sidebar(
     ),
     nav_panel(
       "Exports",
+      value = "exports",
       layout_sidebar(
         sidebar = sidebar(
           width = 320,
@@ -1248,6 +1280,8 @@ server <- function(input, output, session) {
       ),
       collapse = "\n"
     )
+
+    bslib::nav_select("main_tabs", "imported_data")
   })
 
   export_source_data <- reactive({

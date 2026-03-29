@@ -5,6 +5,6 @@ account: klebsiella
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 17006320
-bundleId: 11777049
+bundleId: 11777088
 url: https://klebsiella.shinyapps.io/amrgenconverter/
 version: 1
