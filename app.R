@@ -718,6 +718,10 @@ ui <- page_sidebar(
           id = "export_tabs",
           nav_panel(
             "NCBI",
+            tags$p(
+              HTML('Export a TSV file suitable for submission to NCBI. See <a href="https://www.ncbi.nlm.nih.gov/biosample/docs/antibiogram/" target="_blank" rel="noopener noreferrer">NCBI BioSample Antibiograms</a> for details.'),
+              style = "margin-bottom: 1rem;"
+            ),
             div(
               style = "margin-bottom: 24px;",
               layout_columns(
@@ -746,6 +750,10 @@ ui <- page_sidebar(
           nav_panel(
             "EBI table",
             value = "ebi_table",
+            tags$p(
+              HTML('Export a TSV file with the fields required for ENA (for review purposes only). To prepare submission-ready JSON files for ENA use the \'EBI JSON\' tab. See <a href="https://www.ebi.ac.uk/amr/amr_submission_guide/" target="_blank" rel="noopener noreferrer">AMR Submission Guide</a> for details.'),
+              style = "margin-bottom: 1rem;"
+            ),
             div(
               style = "margin-bottom: 24px;",
               layout_columns(
@@ -769,6 +777,10 @@ ui <- page_sidebar(
           nav_panel(
             "EBI JSON",
             value = "ebi_json",
+            tags$p(
+              HTML('Export a zipped directory of submission-ready JSON files for ENA. See <a href="https://www.ebi.ac.uk/amr/amr_submission_guide/" target="_blank" rel="noopener noreferrer">AMR Submission Guide</a> for details.'),
+              style = "margin-bottom: 1rem;"
+            ),
             div(
               style = "margin-bottom: 24px;",
               layout_columns(
