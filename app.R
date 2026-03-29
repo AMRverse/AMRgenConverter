@@ -134,6 +134,7 @@ read_tabular_input <- function(file_info) {
     return(as.data.frame(readxl::read_excel(file_info$datapath, sheet = sheet_names[[1]])))
   }
 
+  if (ext == "csv") {
     return(utils::read.csv(file_info$datapath, stringsAsFactors = FALSE, check.names = FALSE))
   }
 
