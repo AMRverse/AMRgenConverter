@@ -1,6 +1,13 @@
 # AMRgenConverter
 
-A Shiny app for importing antibiogram data with `AMRgen::import_pheno()`, summarising it with `AMRgen::summarise_pheno()`, and exporting NCBI or EBI-ready outputs.
+A Shiny app for importing antibiogram data, and exporting it to formats suitable for submission to NCBI or EBI-ready.
+
+## How to use
+1. The easiest way to use the app is to access the online at [apps.amrverse.org/amrgenconverter](http://apps.amrverse.org/amrgenconverter/), which requires no installation and no knowledge of R. 
+
+2. If you have Rstudio, you can download the app code from this repository and run it locally (see below). 
+
+3. The app uses the import and export functions from the [AMRgen](https://amrgen.org/) R package. If you are an R user, you might prefer to use the AMRgen R package directly, as this is more flexible and can be integrated into work flows.
 
 ## Features
 
