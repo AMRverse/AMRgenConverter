@@ -695,7 +695,7 @@ ui <- page_sidebar(
       div(
         style = "padding: 0.5rem 0.25rem 0.25rem 0.25rem;",
         tags$h4("How to use this app", style = "color: #3E0B5C; margin-bottom: 1rem;"),
-        tags$p(HTML("This app imports antibiogram data from a variety of input formats, and exports submission-ready files suitable for submission to <a href=\"https://www.ncbi.nlm.nih.gov/biosample/docs/antibiogram/\" target=\"_blank\" rel=\"noopener noreferrer\">NCBI</a> or <a href=\"https://www.ebi.ac.uk/amr/amr_submission_guide/\" target=\"_blank\" rel=\"noopener noreferrer\">ENA (via EBI AMR portal)</a> as BioSample data. It is powered by the <a href=\"https://amrgen.org/\" target=\"_blank\" rel=\"noopener noreferrer\">AMRgen</a> and <a href=\"https://amr-for-r.org/\" target=\"_blank\" rel=\"noopener noreferrer\">AMR for R</a> packages.")),
+        tags$p(HTML("This app imports antibiogram data from a variety of input formats, and exports submission-ready files suitable for submission to <a href=\"https://www.ncbi.nlm.nih.gov/biosample/docs/antibiogram/\" target=\"_blank\" rel=\"noopener noreferrer\">NCBI</a> or <a href=\"https://www.ebi.ac.uk/amr/amr_submission_guide/\" target=\"_blank\" rel=\"noopener noreferrer\">EMBL-EBI</a> as BioSample data. It is powered by the <a href=\"https://amrgen.org/\" target=\"_blank\" rel=\"noopener noreferrer\">AMRgen</a> and <a href=\"https://amr-for-r.org/\" target=\"_blank\" rel=\"noopener noreferrer\">AMR for R</a> packages. You can also download and run the app locally via Rstudio, code is available <<a href=\"https://github.com/AMRverse/AMRgenConverter\" target=\"_blank\" rel=\"noopener noreferrer\">here</a>.")),
         tags$ol(
           tags$li("Upload your antibiogram file in a supported format. Click the 'Input format' selector to see the list of supported input formats."),
           tags$li('If you would like to re-interpret the MIC or disk measurements in the input file using latest breakpoints, check the relevant boxes under "Interpret resistance categories?"'),
@@ -710,7 +710,7 @@ ui <- page_sidebar(
               tags$li(HTML("<a href=\"https://amrgen.org/reference/export_ebi_ast.html\" target=\"_blank\" rel=\"noopener noreferrer\">export_ebi_ast()</a>"))
             )
           ),
-          tags$li("Note that NCBI and ENA require valid BioSamples be included in the submission files. If needed you can upload a second file mapping sample identifiers from your input antibiogram file, to BioSample accessions, under the Exports tab before downloading. This file can be in any tabular format, you just need to indicate which column contains sample identifiers that match your input file, and which column contains the BioSample accessions to replace these with in the exported files.")
+          tags$li("Note that NCBI and EMBL-EBI require valid BioSamples be included in the submission files. If needed you can upload a second file mapping sample identifiers from your input antibiogram file, to BioSample accessions, under the Exports tab before downloading. This file can be in any tabular format, you just need to indicate which column contains sample identifiers that match your input file, and which column contains the BioSample accessions to replace these with in the exported files.")
         )
       )
     ),
