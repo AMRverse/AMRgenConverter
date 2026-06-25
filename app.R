@@ -1214,15 +1214,29 @@ server <- function(input, output, session) {
     req(input$input_file)
     prepared_input <- prepare_import_input(input$input_file, format = input$input_format)
 
+    optional_text <- function(x) {
+      if (!is.null(x) &&
+          is.character(x) &&
+          length(x) == 1 &&
+          nzchar(x)) {
+        x
+      } else {
+        NULL
+      }
+    }
+    
     import_args <- list(
       input = prepared_input$input,
       format = input$input_format,
       interpret_eucast = isTRUE(input$interpret_eucast),
       interpret_clsi = isTRUE(input$interpret_clsi),
       interpret_ecoff = isTRUE(input$interpret_ecoff),
-      species = if (nzchar(input$species_override)) input$species_override else NULL,
-      ab = if (nzchar(input$antibiotic_override)) input$antibiotic_override else NULL,
-      source = if (nzchar(input$source_override)) input$source_override else NULL
+      #species = if (nzchar(input$species_override)) input$species_override else NULL,
+      #ab = if (nzchar(input$antibiotic_override)) input$antibiotic_override else NULL,
+      #source = if (nzchar(input$source_override)) input$source_override else NULL
+      species = optional_text(input$species_override),
+      ab      = optional_text(input$antibiotic_override),
+      source  = optional_text(input$source_override)
     )
     import_args <- c(import_args, collect_extra_import_args(input, input$input_format))
 
