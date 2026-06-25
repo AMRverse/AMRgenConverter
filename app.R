@@ -706,8 +706,8 @@ ui <- page_sidebar(
             HTML("Open the Exports tab to convert the imported data to submission-ready formats. For further details of the exported file formats and options, see the AMRgen functions:"),
             tags$ul(
               style = "margin-top: 0.5rem;",
-              tags$li(HTML("<a href=\"https://amrgen.org/reference/export_ncbi_ast.html\" target=\"_blank\" rel=\"noopener noreferrer\">export_ncbi_ast()</a>")),
-              tags$li(HTML("<a href=\"https://amrgen.org/reference/export_ebi_ast.html\" target=\"_blank\" rel=\"noopener noreferrer\">export_ebi_ast()</a>"))
+              tags$li(HTML("<a href=\"https://amrgen.org/reference/export_ncbi_pheno.html\" target=\"_blank\" rel=\"noopener noreferrer\">export_ncbi_pheno()</a>")),
+              tags$li(HTML("<a href=\"https://amrgen.org/reference/export_ebi_pheno.html\" target=\"_blank\" rel=\"noopener noreferrer\">export_ebi_pheno()</a>"))
             )
           ),
           tags$li("Note that NCBI and EMBL-EBI require valid BioSamples be included in the submission files. If needed you can upload a second file mapping sample identifiers from your input antibiogram file, to BioSample accessions, under the Exports tab before downloading. This file can be in any tabular format, you just need to indicate which column contains sample identifiers that match your input file, and which column contains the BioSample accessions to replace these with in the exported files.")
