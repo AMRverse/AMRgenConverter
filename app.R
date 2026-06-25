@@ -1350,11 +1350,11 @@ server <- function(input, output, session) {
         guideline = input$ncbi_guideline,
         vendor = null_if_blank(input$ncbi_vendor)
       ),
-      "export_ncbi_ast"
+      "export_ncbi_pheno"
     )
 
     ncbi_result <- capture_conditions(
-      do.call(AMRgen::export_ncbi_ast, ncbi_call_args)
+      do.call(AMRgen::export_ncbi_pheno, ncbi_call_args)
     )
     ncbi_result$value <- apply_ncbi_testing_standard(
       ncbi_result$value,
@@ -1376,9 +1376,9 @@ server <- function(input, output, session) {
       pheno_col = rv$export_pheno_col,
       guideline = ebi_guideline_value(),
       breakpoint_version = ebi_breakpoint_version_value()
-    ), "export_ebi_ast")
+    ), "export_ebi_pheno")
 
-    ebi_result <- capture_conditions(do.call(AMRgen::export_ebi_ast, ebi_args))
+    ebi_result <- capture_conditions(do.call(AMRgen::export_ebi_pheno, ebi_args))
     ebi_result$value <- apply_ebi_testing_standard(
       ebi_result$value,
       rv$export_pheno_col,
@@ -1493,7 +1493,7 @@ server <- function(input, output, session) {
         guideline = input$ncbi_guideline
       )
       ncbi_table <- do.call(
-        AMRgen::export_ncbi_ast,
+        AMRgen::export_ncbi_pheno,
         filter_supported_args(
           list(
             data = export_data,
@@ -1501,7 +1501,7 @@ server <- function(input, output, session) {
             guideline = input$ncbi_guideline,
             vendor = null_if_blank(input$ncbi_vendor)
           ),
-          "export_ncbi_ast"
+          "export_ncbi_pheno"
         )
       )
 
@@ -1538,13 +1538,13 @@ server <- function(input, output, session) {
         guideline = ebi_guideline_value()
       )
       ebi_table <- do.call(
-        AMRgen::export_ebi_ast,
+        AMRgen::export_ebi_pheno,
         filter_supported_args(list(
           data = export_data,
           pheno_col = rv$export_pheno_col,
           guideline = ebi_guideline_value(),
           breakpoint_version = ebi_breakpoint_version_value()
-        ), "export_ebi_ast")
+        ), "export_ebi_pheno")
       )
       ebi_table <- apply_ebi_testing_standard(
         ebi_table,
@@ -1589,7 +1589,7 @@ server <- function(input, output, session) {
         dir.create(tmp_dir, recursive = TRUE, showWarnings = FALSE)
 
         do.call(
-          AMRgen::export_ebi_ast,
+          AMRgen::export_ebi_pheno,
           filter_supported_args(list(
             data = export_data,
             pheno_col = rv$export_pheno_col,
@@ -1598,7 +1598,7 @@ server <- function(input, output, session) {
             submission_account = if (is.null(input$ebi_submission_account)) "" else input$ebi_submission_account,
             domain = input$ebi_domain,
             output_dir = tmp_dir
-          ), "export_ebi_ast")
+          ), "export_ebi_pheno")
         )
 
         json_files <- list.files(tmp_dir, full.names = TRUE)
